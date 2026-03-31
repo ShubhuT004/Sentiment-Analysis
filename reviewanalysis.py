@@ -64,11 +64,6 @@ st.markdown("**Try Examples:**")
 st.code("Delivery was very slow and bad")
 st.code("Amazing product, very fast and smooth")
 
-model_choice = st.selectbox(
-    "Choose Model",
-    ["Logistic Regression", "Naive Bayes"]
-)
-
 user_input = st.text_area(
     "Enter Review:",
     placeholder="Type your review here...",
