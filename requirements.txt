@@ -1,5 +1,9 @@
 streamlit
-scikit-learn
-nltk
 pandas
 numpy
+scikit-learn
+nltk
+matplotlib
+seaborn
+wordcloud
+pickle-mixin
