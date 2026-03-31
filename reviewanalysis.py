@@ -2,26 +2,39 @@ import streamlit as st
 import pickle
 import re
 import string
+import nltk
+import os
+nltk_data_path = "/tmp/nltk_data"
+os.makedirs(nltk_data_path, exist_ok=True)
+nltk.data.path.append(nltk_data_path)
+
+nltk.download('stopwords', download_dir=nltk_data_path)
+nltk.download('wordnet', download_dir=nltk_data_path)
+
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
-# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="Review AI",
     page_icon="📊",
     layout="centered"
 )
 
-# ---------------- LOAD MODEL ----------------
 @st.cache_resource
 def load_models():
     model = pickle.load(open("model.pkl", "rb"))
     tfidf = pickle.load(open("tfidf.pkl", "rb"))
-    return model, tfidf
+    
+    # Optional Naive Bayes
+    try:
+        nb_model = pickle.load(open("nb_model.pkl", "rb"))
+    except:
+        nb_model = None
 
-model, tfidf = load_models()
+    return model, tfidf, nb_model
 
-# ---------------- NLP SETUP ----------------
+model, tfidf, nb_model = load_models()
+
 stop_words = set(stopwords.words("english"))
 lemmatizer = WordNetLemmatizer()
 
@@ -43,71 +56,53 @@ def clean_text(text):
 
     return " ".join(cleaned_words)
 
-# ---------------- UI STYLING ----------------
-st.markdown("""
-<style>
-.main {
-    background-color: #f5f7f9;
-}
-.stButton>button {
-    width: 100%;
-    border-radius: 8px;
-    height: 3em;
-    background-color: #ff4b4b;
-    color: white;
-}
-.sentiment-box {
-    padding: 20px;
-    border-radius: 10px;
-    text-align: center;
-    margin-top: 20px;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ---------------- UI ----------------
 st.title("📊 Customer Review Analyzer")
 
-st.write(
-    "Enter a customer review below to determine if the sentiment is **Positive** or **Negative**."
+st.write("Analyze customer sentiment across any platform 🚀")
+
+st.markdown("**Try Examples:**")
+st.code("Delivery was very slow and bad")
+st.code("Amazing product, very fast and smooth")
+
+model_choice = st.selectbox(
+    "Choose Model",
+    ["Logistic Regression", "Naive Bayes"]
 )
 
 user_input = st.text_area(
-    "Review Text:",
+    "Enter Review:",
     placeholder="Type your review here...",
     height=150
 )
 
-# ---------------- PREDICTION ----------------
 if st.button("Analyze Sentiment"):
+
     if user_input.strip() == "":
         st.warning("Please enter some text first!")
     else:
-        cleaned = clean_text(user_input)
-        vector = tfidf.transform([cleaned])
+        with st.spinner("Analyzing..."):
+            cleaned = clean_text(user_input)
+            vector = tfidf.transform([cleaned])
 
-        prediction = model.predict(vector)[0]
-        confidence = model.predict_proba(vector).max()
+            if model_choice == "Naive Bayes" and nb_model:
+                pred = nb_model.predict(vector)[0]
+                prob = nb_model.predict_proba(vector).max()
+            else:
+                pred = model.predict(vector)[0]
+                prob = model.predict_proba(vector).max()
 
         st.divider()
 
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.metric(
-                label="Predicted Sentiment",
-                value=str(prediction).upper()
-            )
-
-        with col2:
-            st.metric(
-                label="Confidence Score",
-                value=f"{round(confidence * 100, 1)}%"
-            )
-
-        if confidence > 0.75:
-            st.success(f"The model is very confident this is {prediction}.")
+        if str(pred).lower() == "positive":
+            st.success(f"😊 Positive ({round(prob*100,1)}%)")
         else:
-            st.info("The model has moderate confidence in this result.")
+            st.error(f"😡 Negative ({round(prob*100,1)}%)")
 
-        st.progress(float(confidence))
+        st.progress(float(prob))
+
+        if prob > 0.75:
+            st.success("High confidence prediction")
+        elif prob > 0.5:
+            st.info("Moderate confidence")
+        else:
+            st.warning("Low confidence - uncertain prediction")
