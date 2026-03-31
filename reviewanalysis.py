@@ -4,6 +4,7 @@ import re
 import string
 import nltk
 import os
+
 nltk_data_path = "/tmp/nltk_data"
 os.makedirs(nltk_data_path, exist_ok=True)
 nltk.data.path.append(nltk_data_path)
@@ -24,16 +25,9 @@ st.set_page_config(
 def load_models():
     model = pickle.load(open("model.pkl", "rb"))
     tfidf = pickle.load(open("tfidf.pkl", "rb"))
-    
-    # Optional Naive Bayes
-    try:
-        nb_model = pickle.load(open("nb_model.pkl", "rb"))
-    except:
-        nb_model = None
+    return model, tfidf
 
-    return model, tfidf, nb_model
-
-model, tfidf, nb_model = load_models()
+model, tfidf = load_models()
 
 stop_words = set(stopwords.words("english"))
 lemmatizer = WordNetLemmatizer()
@@ -58,11 +52,9 @@ def clean_text(text):
 
 st.title("📊 Customer Review Analyzer")
 
-st.write("Analyze customer sentiment across any platform 🚀")
-
-st.markdown("**Try Examples:**")
-st.code("Delivery was very slow and bad")
-st.code("Amazing product, very fast and smooth")
+st.write(
+    "Analyze customer sentiment from reviews using NLP and Machine Learning."
+)
 
 user_input = st.text_area(
     "Enter Review:",
@@ -71,7 +63,6 @@ user_input = st.text_area(
 )
 
 if st.button("Analyze Sentiment"):
-
     if user_input.strip() == "":
         st.warning("Please enter some text first!")
     else:
@@ -79,25 +70,21 @@ if st.button("Analyze Sentiment"):
             cleaned = clean_text(user_input)
             vector = tfidf.transform([cleaned])
 
-            if model_choice == "Naive Bayes" and nb_model:
-                pred = nb_model.predict(vector)[0]
-                prob = nb_model.predict_proba(vector).max()
-            else:
-                pred = model.predict(vector)[0]
-                prob = model.predict_proba(vector).max()
+            prediction = model.predict(vector)[0]
+            confidence = model.predict_proba(vector).max()
 
         st.divider()
 
-        if str(pred).lower() == "positive":
-            st.success(f"😊 Positive ({round(prob*100,1)}%)")
+        if str(prediction).lower() == "positive":
+            st.success(f"😊 Positive ({round(confidence*100,1)}%)")
         else:
-            st.error(f"😡 Negative ({round(prob*100,1)}%)")
+            st.error(f"😡 Negative ({round(confidence*100,1)}%)")
 
-        st.progress(float(prob))
+        st.progress(float(confidence))
 
-        if prob > 0.75:
+        if confidence > 0.75:
             st.success("High confidence prediction")
-        elif prob > 0.5:
+        elif confidence > 0.5:
             st.info("Moderate confidence")
         else:
             st.warning("Low confidence - uncertain prediction")
